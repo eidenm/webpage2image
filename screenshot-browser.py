@@ -12,6 +12,7 @@ from gi.repository import (
     Gtk,
     WebKit,
 )
+from optparse import OptionParser
 
 # add security by default (see bugzilla #666280 and #666276)
 # enable certificates validation in webkit views unless specified otherwise
@@ -22,12 +23,17 @@ session.set_property("ssl-use-system-ca-file", True)
 
 class ScreenshotBrowser(Gtk.OffscreenWindow):
 
-    def __init__(self, width, height, user_agent):
+    def __init__(self, width, height, user_agent, outputname, outputformat):
         super(ScreenshotBrowser, self).__init__()
         self.init_ui(width, height)
+        self.init_output_settings(outputname, outputformat)
         self.init_widgets()
         self.init_settings(width, height, user_agent)
         self.init_signals()
+
+    def init_output_settings(self,outputname,outputformat):
+        self.outputname = outputname + "." + outputformat
+        self.outputformat = outputformat
 
     def init_ui(self, width, height):
         self.set_default_size(width, height)
@@ -39,13 +45,15 @@ class ScreenshotBrowser(Gtk.OffscreenWindow):
         # webkit
         self.webview = WebKit.WebView()
         self.webview.show()
-        scroll = Gtk.ScrolledWindow()
-        scroll.add(self.webview)
+        #scroll = Gtk.ScrolledWindow()
+        #scroll.add(self.webview)
         scroll.show()
+        scroll.get_vscrollbar().set_child_visible(False) 		
+        scroll.get_hscrollbar().set_child_visible(False) 		
         box.pack_start(scroll, True, True, 0)
         self.show_all()
 
-    def make_screenshot(self, url, target_filename):
+    def make_screenshot(self, url):
         self.webview.load_uri(uri)
 
     def init_signals(self):
@@ -66,7 +74,7 @@ class ScreenshotBrowser(Gtk.OffscreenWindow):
     def _on_load_changed(self, view, percent):
         if percent == 100:
             pixbuf = self.get_pixbuf()
-            pixbuf.savev("foo.png", "png", [], [])
+            pixbuf.savev(self.outputname, self.outputformat, [], [])
             Gtk.main_quit()
 
 
@@ -76,11 +84,17 @@ if __name__ == "__main__":
     else:
         uri = "http://www.uni-trier.de/"
 
-    width = 640
-    height = 400
-    user_agent = "Mozilla/5.0 (Linux; U; Android 4.0.3; ko-kr; LG-L160L Build/IML74K) AppleWebkit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30"
-
-    browser = ScreenshotBrowser(width, height, user_agent)
-    browser.make_screenshot(uri, "foo.png")
+    usage = "usage: %prog [options] url"
+    parser = OptionParser(usage=usage)
+    parser = OptionParser()
+    parser.add_option('-W', '--width', action='store', type='int', help='Resolution width(default %default)', default="1024")
+    parser.add_option('-H', '--height', action='store', type='int', help='Resolution height(default %default)', default="768")
+    parser.add_option('-d', '--device', action='store', type='string', help='String of the user-agent (default %default)', default="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36")
+    parser.add_option('-o', '--output', action='store', type='string', help='Output-Name without Extension(default %default)', default="output")
+    parser.add_option('-f', '--format', action='store', type='string', help='Output-Format(default %default)', default="png")
+    (options, args) = parser.parse_args()
+	
+    browser = ScreenshotBrowser(options.width, options.height, options.device,options.output, options.format)
+    browser.make_screenshot(uri)
     browser.show()
     Gtk.main()
